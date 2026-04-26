@@ -1,152 +1,113 @@
 """
-agents/token_budget.py — Shared Groq token budget + dual API key rotation.
+token_budget.py — Shared Groq token budget for Council + ORACLE
 
-TWO API KEYS = DOUBLE THE DAILY LIMIT
-Set both keys as environment variables on Render:
-  GROQ_API_KEY    — your primary key   (100K tokens/day)
-  GROQ_API_KEY_2  — your secondary key (100K tokens/day)
-  GROQ_API_KEY_3  — your third key     (100K tokens/day)
-Combined daily cap: 180K tokens (leaving a safety buffer below the 200K total).
+FIX 6+7: Single source of truth for daily token consumption.
+Both council.py and oracle.py import this module so they share one counter
+instead of each maintaining their own, which could silently allow 2× the limit.
 
-Key rotation logic:
-- Keys rotate per-call in round-robin order
-- If key 1 hits its daily cap, all calls shift to key 2 automatically
-- If key 2 also hits its cap, calls stop (budget exhausted for the day)
-- 429 rate-limit responses trigger an immediate switch to the other key
-
-Budget is per-process (resets on Render cold start) — this is best-effort.
-The real enforcement is Groq's own rate limits; this reduces wasteful overspend.
+FIX 6 (persistence): On Render free tier the process restarts regularly
+(cold starts, deploys) which resets any in-memory counter to 0. To survive
+restarts, this module optionally persists the daily count to /tmp/token_budget.json.
+/tmp persists within a single Render instance session (not across deploys, but
+across cold-start wakeups within the same deploy — good enough to prevent the
+worst burst scenarios).
 """
 
-import os, threading
-from datetime import datetime
+import json, logging, os
+from datetime import datetime, date
 
-# ── KEY POOL ──────────────────────────────────────────────────────────────────
-def _load_keys():
-    """Load all configured Groq API keys from environment."""
-    keys = []
-    k1 = os.environ.get('GROQ_API_KEY', '').strip()
-    k2 = os.environ.get('GROQ_API_KEY_2', '').strip()
-    k3 = os.environ.get('GROQ_API_KEY_3', '').strip()
-    if k1: keys.append(k1)
-    if k2: keys.append(k2)
-    if k3: keys.append(k3)
-    if not keys:
-        import logging
-        logging.getLogger('token_budget').warning(
-            "No GROQ_API_KEY found in environment. Groq calls will fail."
-        )
-    return keys
+log = logging.getLogger('token_budget')
 
-_KEYS            = _load_keys()
-_PER_KEY_CAP     = 90_000   # Safety cap per key (Groq allows 100K — we stop at 90K)
-_DAILY_CAP       = _PER_KEY_CAP * max(1, len(_KEYS))  # 90K × number of keys
-COUNCIL_RESERVE  = min(40_000 * max(1, len(_KEYS)), _DAILY_CAP // 2)
-ORACLE_RESERVE   = min(40_000 * max(1, len(_KEYS)), _DAILY_CAP // 2)
+HARD_LIMIT   = 100_000   # Groq free tier daily limit
+SOFT_LIMIT   = 88_000    # Stop spending above this (12K buffer for bursts)
+_BUDGET_FILE = '/tmp/token_budget.json'
 
-# ── STATE ─────────────────────────────────────────────────────────────────────
-_lock        = threading.Lock()
-_reset_date  = datetime.utcnow().date()
-_key_index   = 0          # current key index (round-robin)
-_key_tokens  = {}         # tokens used per key: {key_index: int}
-_council_used = 0
-_oracle_used  = 0
+# ── In-memory state ──────────────────────────────────────────────────────────
+_state = {
+    'date':  str(date.today()),
+    'count': 0,
+}
 
-def _maybe_reset():
-    global _reset_date, _key_tokens, _council_used, _oracle_used, _key_index
-    today = datetime.utcnow().date()
-    if today != _reset_date:
-        _reset_date   = today
-        _key_tokens   = {}
-        _council_used = 0
-        _oracle_used  = 0
-        _key_index    = 0
 
-def _total_tokens() -> int:
-    return sum(_key_tokens.values())
+def _load():
+    """Load persisted state from /tmp if it exists and is from today."""
+    global _state
+    try:
+        if os.path.exists(_BUDGET_FILE):
+            with open(_BUDGET_FILE) as f:
+                data = json.load(f)
+            if data.get('date') == str(date.today()):
+                _state = data
+                log.info(f"token_budget: loaded {_state['count']} tokens from disk for {_state['date']}")
+                return
+    except Exception as e:
+        log.warning(f"token_budget: could not load from disk: {e}")
+    # Fresh day or no file
+    _state = {'date': str(date.today()), 'count': 0}
 
-# ── PUBLIC API ────────────────────────────────────────────────────────────────
 
-def get_key() -> str:
-    """
-    Return the best available API key using round-robin rotation.
-    Automatically skips keys that have hit their per-key cap.
-    Returns empty string if all keys are exhausted.
-    """
-    global _key_index
-    with _lock:
-        _maybe_reset()
-        if not _KEYS:
-            return ''
-        # Try each key in order starting from current index
-        for offset in range(len(_KEYS)):
-            idx  = (_key_index + offset) % len(_KEYS)
-            used = _key_tokens.get(idx, 0)
-            if used < _PER_KEY_CAP:
-                _key_index = idx  # stay on this key for next call too
-                return _KEYS[idx]
-        # All keys exhausted
-        return ''
+def _save():
+    """Persist current state to /tmp."""
+    try:
+        with open(_BUDGET_FILE, 'w') as f:
+            json.dump(_state, f)
+    except Exception as e:
+        log.warning(f"token_budget: could not persist to disk: {e}")
 
-def rotate_key():
-    """
-    Force rotation to the next key — call this on a 429 rate-limit response
-    so we immediately try the other key instead of waiting.
-    """
-    global _key_index
-    with _lock:
-        if len(_KEYS) > 1:
-            _key_index = (_key_index + 1) % len(_KEYS)
 
-def can_spend(consumer: str, estimated: int) -> bool:
-    """Return True if `consumer` can spend `estimated` tokens right now."""
-    with _lock:
-        _maybe_reset()
-        if _total_tokens() + estimated > _DAILY_CAP:
-            return False
-        if consumer == 'council' and _council_used + estimated > COUNCIL_RESERVE:
-            return False
-        if consumer == 'oracle' and _oracle_used + estimated > ORACLE_RESERVE:
-            return False
-        # Also check the current key hasn't hit its per-key cap
-        used = _key_tokens.get(_key_index, 0)
-        if used + estimated > _PER_KEY_CAP:
-            # Current key is full — check if another key is available
-            for idx in range(len(_KEYS)):
-                if _key_tokens.get(idx, 0) + estimated <= _PER_KEY_CAP:
-                    return True
-            return False  # No key has enough budget
-        return True
+def _reset_if_new_day():
+    """Reset counter at midnight."""
+    global _state
+    today = str(date.today())
+    if _state['date'] != today:
+        log.info(f"token_budget: new day ({today}), resetting from {_state['count']}")
+        _state = {'date': today, 'count': 0}
+        _save()
 
-def record_spend(consumer: str, tokens: int):
-    """Record tokens spent by consumer against the current key."""
-    global _council_used, _oracle_used
-    with _lock:
-        _maybe_reset()
-        _key_tokens[_key_index] = _key_tokens.get(_key_index, 0) + tokens
-        if consumer == 'council':
-            _council_used += tokens
-        elif consumer == 'oracle':
-            _oracle_used  += tokens
+
+# Load on import
+_load()
+
+
+# ── Public API ────────────────────────────────────────────────────────────────
+
+def used() -> int:
+    """Return tokens consumed today."""
+    _reset_if_new_day()
+    return _state['count']
+
+
+def remaining() -> int:
+    """Return tokens remaining under soft limit."""
+    return max(0, SOFT_LIMIT - used())
+
+
+def can_spend(estimated: int) -> bool:
+    """Return True if we have budget for this estimated spend."""
+    _reset_if_new_day()
+    return (_state['count'] + estimated) <= SOFT_LIMIT
+
+
+def record(actual: int):
+    """Record actual tokens consumed after an API call."""
+    _reset_if_new_day()
+    _state['count'] += actual
+    _save()
+    if _state['count'] > SOFT_LIMIT * 0.9:
+        log.warning(f"token_budget: {_state['count']}/{HARD_LIMIT} tokens used today ({remaining()} remaining)")
+
 
 def status() -> dict:
-    """Return full budget status — used by /api/health."""
-    with _lock:
-        _maybe_reset()
-        flat = {}
-        for i in range(len(_KEYS)):
-            flat[f'key_{i+1}_used']      = _key_tokens.get(i, 0)
-            flat[f'key_{i+1}_remaining'] = max(0, _PER_KEY_CAP - _key_tokens.get(i, 0))
-        return {
-            'keys_configured':   len(_KEYS),
-            'daily_cap':         _DAILY_CAP,
-            'daily_used':        _total_tokens(),
-            'daily_remaining':   max(0, _DAILY_CAP - _total_tokens()),
-            'council_used':      _council_used,
-            'council_remaining': max(0, COUNCIL_RESERVE - _council_used),
-            'oracle_used':       _oracle_used,
-            'oracle_remaining':  max(0, ORACLE_RESERVE - _oracle_used),
-            'current_key_index': _key_index + 1,
-            'reset_date':        str(_reset_date),
-            **flat,
-        }
+    """Return full budget status dict for /api/health."""
+    _reset_if_new_day()
+    return {
+        'date':          _state['date'],
+        'used':          _state['count'],
+        'soft_limit':    SOFT_LIMIT,
+        'hard_limit':    HARD_LIMIT,
+        'remaining':     remaining(),
+        'pct_used':      round(_state['count'] / HARD_LIMIT * 100, 1),
+        'warning':       _state['count'] > SOFT_LIMIT * 0.8,
+        'critical':      _state['count'] >= SOFT_LIMIT,
+        'note':          'Persisted to /tmp — survives cold starts within same deploy, resets on new deploy.',
+    }

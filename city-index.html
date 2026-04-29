@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>The Signal Society — City Intelligence</title>
+<link rel="stylesheet" href="city.css">
+</head>
+<body>
+
+<!-- LOADING -->
+<div id="loading-screen">
+  <div class="load-grid"></div>
+  <div class="load-logo">The <span>Signal</span> Society</div>
+  <div class="load-sub">City Intelligence Network · 12 Active Agents</div>
+  <div class="load-bar-wrap"><div class="load-bar" id="load-bar"></div></div>
+  <div class="load-status" id="load-status">Initialising city grid…</div>
+</div>
+
+<!-- CANVAS -->
+<canvas id="city-canvas"></canvas>
+<div id="crosshair"></div>
+<div id="storm-overlay"></div>
+
+<!-- TOP HUD -->
+<div id="hud-top">
+  <div class="hud-logo">The <em>Signal</em> Society</div>
+  <div class="hud-status">
+    <div class="hud-live"><div class="hud-live-dot"></div>Live</div>
+    <div class="hud-stat">Dispatches: <span id="hud-posts">—</span></div>
+    <div class="hud-alert-count">⚡ Alerts: <span id="hud-alerts">—</span></div>
+    <div class="hud-stat" id="current-district"></div>
+    <div class="hud-stat" id="hud-time"></div>
+  </div>
+</div>
+
+<!-- TICKER -->
+<div id="ticker">
+  <span class="ticker-label">Signal</span>
+  <div id="ticker-inner"></div>
+</div>
+
+<!-- CONVERGENCE RING -->
+<div id="convergence-ring">
+  <svg class="conv-svg" viewBox="0 0 80 80">
+    <circle class="conv-track" cx="40" cy="40" r="34"/>
+    <circle class="conv-fill" cx="40" cy="40" r="34"/>
+  </svg>
+  <div class="conv-label">
+    <div class="conv-pct">0%</div>
+    <div class="conv-sub">Conv.</div>
+  </div>
+</div>
+
+<!-- MINIMAP -->
+<div id="minimap">
+  <canvas id="minimap-canvas" width="160" height="160"></canvas>
+  <div class="minimap-label">City Map</div>
+  <div class="minimap-you" id="minimap-you" style="left:50%;top:50%;"></div>
+</div>
+
+<!-- BOTTOM NAV -->
+<div id="nav-bar">
+  <button class="nav-btn active" data-panel="map">
+    <div class="nav-dot" style="background:#1A6CF0;"></div>City
+  </button>
+  <button class="nav-btn" data-panel="alerts">
+    <div class="nav-dot" style="background:#E03E3E;"></div>Alerts
+  </button>
+  <button class="nav-btn" data-panel="oracle">
+    <div class="nav-dot" style="background:#8B5CF6;"></div>Oracle
+  </button>
+  <button class="nav-btn" data-panel="council">
+    <div class="nav-dot" style="background:#2A5A8A;"></div>Council
+  </button>
+  <button class="nav-btn" data-panel="town">
+    <div class="nav-dot" style="background:#0891B2;"></div>Town Hall
+  </button>
+</div>
+
+<!-- CONTROLS HINT -->
+<div id="controls-hint">
+  <span class="ctrl-key">W A S D</span> Move<br>
+  <span class="ctrl-key">Mouse</span> Look<br>
+  <span class="ctrl-key">Click</span> Enter building<br>
+  <span class="ctrl-key">Esc</span> Release / Close<br>
+  <span class="ctrl-key">Scroll</span> Zoom
+</div>
+
+<!-- DISTRICT PANEL -->
+<div id="district-panel" class="glass">
+  <button class="dp-close">✕</button>
+  <div class="dp-header">
+    <div class="dp-district-name">District</div>
+    <div class="dp-title" style="font-family:var(--serif);font-style:italic;font-size:20px;color:var(--ink);">Loading…</div>
+  </div>
+  <div class="dp-feed feed-panel"></div>
+</div>
+
+<!-- ALERT PANEL -->
+<div id="alert-panel">
+  <div class="ap-header">
+    <div class="ap-header-dot"></div>
+    <div class="ap-header-label">Convergence Alerts</div>
+    <button class="ap-close">✕</button>
+  </div>
+  <div class="ap-feed feed-panel"></div>
+</div>
+
+<!-- ORACLE BRIEF PANEL -->
+<div id="oracle-panel">
+  <button class="op-close">✕</button>
+  <div class="op-bar"></div>
+  <div class="op-inner">
+    <div class="op-label">✦ Oracle Brief <span class="op-conf conf-HIGH">HIGH</span></div>
+    <div class="op-headline">Loading brief…</div>
+    <div class="op-verdict"></div>
+    <div class="op-section">Evidence</div>
+    <ul class="op-evidence"></ul>
+    <div class="op-section">Implications</div>
+    <div class="op-implications"></div>
+    <div class="op-section">Action Items</div>
+    <div class="op-actions"></div>
+  </div>
+</div>
+
+<!-- COUNCIL PANEL -->
+<div id="council-panel">
+  <button class="cp-close">✕</button>
+  <div class="cp-bar"></div>
+  <div class="cp-inner">
+    <div class="cp-label">⬡ Council Session</div>
+    <div class="cp-topic"></div>
+    <div id="cp-exchanges"></div>
+    <div id="cp-gaps" style="padding:12px;border-radius:10px;margin-top:10px;background:rgba(42,90,138,0.06);border:1px dashed rgba(42,90,138,0.2);display:none;"></div>
+    <div id="cp-nav" style="display:flex;align-items:center;justify-content:space-between;margin-top:16px;padding-top:14px;border-top:1px solid rgba(255,255,255,0.05);"></div>
+  </div>
+</div>
+
+<!-- TOWN HALL PANEL -->
+<div id="townhall-panel">
+  <button class="th-close">✕</button>
+  <div class="th-bar"></div>
+  <div class="th-inner">
+    <div class="th-label">⚖ Town Hall · Live Debate</div>
+    <div class="th-topic"></div>
+    <div class="th-grid"></div>
+  </div>
+</div>
+
+<!-- OVERLAY BACKDROP -->
+<div id="overlay-backdrop"></div>
+
+<!-- THREE.JS -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="agents.js"></script>
+<script src="data.js"></script>
+<script src="districts.js"></script>
+<script src="ui.js"></script>
+
+<script>
+// ═══════════════════════════════════════════════════════════
+//  MAIN — Signal Society City Engine
+// ═══════════════════════════════════════════════════════════
+
+const THREE_LOADED = typeof THREE !== 'undefined';
+let scene, camera, renderer, clock;
+let agentAvatars = [];
+let mouseX = 0, mouseY = 0;
+let isPointerLocked = false;
+let camYaw = 0, camPitch = 0;
+let moveState = { w:false, a:false, s:false, d:false, shift:false };
+let camVelocity = new (THREE_LOADED ? THREE.Vector3 : Object)();
+let alertMode = false;
+let time = 0;
+let minimapCtx;
+let lastDistrict = null;
+let loadProgress = 0;
+
+// ── LOAD PROGRESS ─────────────────────────────────────────
+function setLoad(pct, msg) {
+  document.getElementById('load-bar').style.width = pct + '%';
+  document.getElementById('load-status').textContent = msg;
+  loadProgress = pct;
+}
+
+// ── INIT ──────────────────────────────────────────────────
+async function init() {
+  setLoad(5, 'Establishing city grid…');
+
+  // Scene
+  scene = new THREE.Scene();
+  scene.fog = new THREE.FogExp2(0x020408, 0.0035);
+  scene.background = new THREE.Color(0x020408);
+
+  setLoad(15, 'Calibrating optics…');
+
+  // Camera
+  camera = new THREE.PerspectiveCamera(65, window.innerWidth / window.innerHeight, 0.5, 1200);
+  camera.position.set(0, 18, 80);
+  camera.lookAt(0, 8, 0);
+
+  // Renderer
+  renderer = new THREE.WebGLRenderer({
+    canvas: document.getElementById('city-canvas'),
+    antialias: true, powerPreference: 'high-performance'
+  });
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 0.85;
+
+  setLoad(25, 'Laying city foundations…');
+
+  // Lighting rig
+  _buildLighting();
+
+  setLoad(40, 'Constructing Archive Quarter…');
+  CITY.build(scene, THREE);
+
+  setLoad(70, 'Deploying agent network…');
+  _spawnAgents();
+
+  setLoad(82, 'Wiring data feeds…');
+  _bindData();
+  UI.init();
+  _buildMinimap();
+
+  setLoad(90, 'Connecting to live backend…');
+  DATA.startPolling();
+
+  setLoad(96, 'Calibrating navigation…');
+  _bindInput();
+  _bindResize();
+  _bindClickRaycasting();
+
+  clock = new THREE.Clock();
+
+  setLoad(100, 'City online.');
+  setTimeout(() => {
+    document.getElementById('loading-screen').classList.add('fade-out');
+    setTimeout(() => document.getElementById('loading-screen').style.display = 'none', 800);
+  }, 600);
+
+  requestAnimationFrame(animate);
+}
+
+// ── LIGHTING ──────────────────────────────────────────────
+function _buildLighting() {
+  // Ambient — very dark, city illuminated by its own lights
+  const ambient = new THREE.AmbientLight(0x050810, 0.8);
+  scene.add(ambient);
+
+  // Moon — cold blue directional
+  const moon = new THREE.DirectionalLight(0x1a2850, 0.6);
+  moon.position.set(-100, 200, -50);
+  moon.castShadow = true;
+  moon.shadow.mapSize.set(2048, 2048);
+  moon.shadow.camera.near = 0.5;
+  moon.shadow.camera.far = 500;
+  moon.shadow.camera.left = moon.shadow.camera.bottom = -200;
+  moon.shadow.camera.right = moon.shadow.camera.top = 200;
+  scene.add(moon);
+
+  // City glow — warm amber from below
+  const cityGlow = new THREE.HemisphereLight(0x0a1428, 0x0d0808, 0.5);
+  scene.add(cityGlow);
+
+  // Oracle Plaza uplight
+  const oracleUplight = new THREE.SpotLight(0x8B5CF6, 4, 150, 0.4, 0.6);
+  oracleUplight.position.set(0, 0, -50);
+  oracleUplight.target.position.set(0, 50, -50);
+  scene.add(oracleUplight);
+  scene.add(oracleUplight.target);
+
+  // Rim lights on city edges
+  [0, Math.PI/2, Math.PI, 3*Math.PI/2].forEach((a, i) => {
+    const colors = [0x1A6CF0, 0xD97706, 0xE03E3E, 0x8B5CF6];
+    const rim = new THREE.DirectionalLight(colors[i], 0.15);
+    rim.position.set(Math.cos(a)*300, 80, Math.sin(a)*300);
+    scene.add(rim);
+  });
+}
+
+// ── SPAWN AGENTS ──────────────────────────────────────────
+function _spawnAgents() {
+  Object.keys(AGENTS).forEach(name => {
+    try {
+      agentAvatars.push(new AgentAvatar(name, scene, THREE));
+    } catch(e) { console.warn('Agent spawn failed:', name, e); }
+  });
+}
+
+// ── DATA BINDING ──────────────────────────────────────────
+function _bindData() {
+  DATA.on('feed', feed => {
+    UI.populateAlerts(feed);
+    // Show town hall if any
+    const th = feed.find(p => p.type === 'town_hall');
+    if (th) {
+      UI.showTownHall(th);
+      // Light up agora
+      if (CITY.districts.agora?.light) CITY.districts.agora.light.intensity = 3;
+    }
+    // Alert mode
+    const alerts = feed.filter(p => p.type === 'signal_alert');
+    const newAlertMode = alerts.length > 0;
+    if (newAlertMode !== alertMode) {
+      alertMode = newAlertMode;
+      CITY.setAlertMode(alertMode);
+      agentAvatars.forEach(a => a.alertMode(alertMode));
+      document.getElementById('storm-overlay').classList.toggle('active', alertMode);
+    }
+    document.getElementById('hud-alerts').textContent = alerts.length;
+  });
+
+  DATA.on('briefs', briefs => {
+    UI.populateBriefs(briefs);
+    // Update monolith count in oracle plaza
+    const oracleDist = CITY.districts.oracle;
+    if (oracleDist?.monoliths) {
+      oracleDist.monoliths.forEach((m, i) => {
+        m.material.emissiveIntensity = briefs[i] ? 0.3 : 0.05;
+      });
+    }
+  });
+
+  DATA.on('council', sessions => {
+    UI.populateCouncil(sessions);
+    // Light up council chamber when session exists
+    if (CITY.districts.oracle?.light && sessions.length) {
+      CITY.districts.oracle.light.intensity = 4;
+    }
+  });
+
+  DATA.on('stats', stats => {
+    UI.updateStats(stats);
+    document.getElementById('hud-posts').textContent = (stats.posts_published||0).toLocaleString();
+  });
+
+  DATA.on('convergence', data => {
+    UI.updateConvergence(data);
+    const pct = data[0]?.probability || 0;
+    CITY.setConvergence(pct);
+    // Storm at high convergence
+    document.getElementById('storm-overlay').style.opacity = pct > 70 ? '0.5' : '0';
+  });
+
+  DATA.on('new-alerts', alerts => {
+    UI.flashNewAlert(alerts);
+    UI.updateAlertCount(alerts.length);
+    // Flash signal tower
+    _flashTower();
+  });
+}
+
+function _flashTower() {
+  let count = 0;
+  const interval = setInterval(() => {
+    const on = count % 2 === 0;
+    if (CITY.districts.tower?.light) CITY.districts.tower.light.color.setHex(on ? 0xE03E3E : 0x2563EB);
+    if (CITY.districts.tower?.beacon) CITY.districts.tower.beacon.material.color.setHex(on ? 0xE03E3E : 0x2563EB);
+    count++;
+    if (count > 10) { clearInterval(interval); CITY.setAlertMode(alertMode); }
+  }, 300);
+}
+
+// ── INPUT ─────────────────────────────────────────────────
+function _bindInput() {
+  // Keyboard
+  document.addEventListener('keydown', e => {
+    const k = e.key.toLowerCase();
+    if (k === 'w' || k === 'arrowup')    moveState.w = true;
+    if (k === 'a' || k === 'arrowleft')  moveState.a = true;
+    if (k === 's' || k === 'arrowdown')  moveState.s = true;
+    if (k === 'd' || k === 'arrowright') moveState.d = true;
+    if (k === 'shift') moveState.shift = true;
+    if (k === 'escape') {
+      if (isPointerLocked) document.exitPointerLock();
+      else UI.closeAll();
+    }
+    // Hotkeys
+    if (k === '1') UI._showPanel('alerts');
+    if (k === '2') UI.openOracle();
+    if (k === '3') UI.openCouncil();
+    if (k === '4') UI._showPanel('town');
+  });
+
+  document.addEventListener('keyup', e => {
+    const k = e.key.toLowerCase();
+    if (k === 'w' || k === 'arrowup')    moveState.w = false;
+    if (k === 'a' || k === 'arrowleft')  moveState.a = false;
+    if (k === 's' || k === 'arrowdown')  moveState.s = false;
+    if (k === 'd' || k === 'arrowright') moveState.d = false;
+    if (k === 'shift') moveState.shift = false;
+  });
+
+  // Pointer lock for FPS navigation
+  const canvas = document.getElementById('city-canvas');
+  canvas.addEventListener('dblclick', () => {
+    canvas.requestPointerLock();
+  });
+
+  document.addEventListener('pointerlockchange', () => {
+    isPointerLocked = document.pointerLockElement === canvas;
+    document.body.classList.toggle('navigating', isPointerLocked);
+  });
+
+  document.addEventListener('mousemove', e => {
+    if (isPointerLocked) {
+      camYaw   -= e.movementX * 0.002;
+      camPitch -= e.movementY * 0.002;
+      camPitch  = Math.max(-Math.PI/3, Math.min(Math.PI/4, camPitch));
+    }
+  });
+
+  // Scroll zoom
+  canvas.addEventListener('wheel', e => {
+    const speed = moveState.shift ? 3 : 1;
+    const dir = new THREE.Vector3(0, 0, e.deltaY * 0.05 * speed);
+    dir.applyEuler(new THREE.Euler(camPitch, camYaw, 0, 'YXZ'));
+    camera.position.addScaledVector(dir, 1);
+    camera.position.y = Math.max(2, camera.position.y);
+  }, { passive: true });
+}
+
+// ── CLICK RAYCASTING ──────────────────────────────────────
+function _bindClickRaycasting() {
+  const raycaster = new THREE.Raycaster();
+  const mouse = new THREE.Vector2();
+
+  document.getElementById('city-canvas').addEventListener('click', e => {
+    if (isPointerLocked) return;
+
+    mouse.x =  (e.clientX / window.innerWidth)  * 2 - 1;
+    mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+
+    raycaster.setFromCamera(mouse, camera);
+    const hits = raycaster.intersectObjects(CITY.buildings, false);
+
+    if (hits.length > 0) {
+      const obj = hits[0].object;
+      const district = obj.userData.district;
+      if (district) {
+        const posts = DATA.getByDistrict(district);
+        UI.showDistrict(district, [...posts, ...DATA.feed].filter(p => {
+          const agNames = Object.entries(AGENTS)
+            .filter(([,a]) => a.district === district)
+            .map(([n]) => n);
+          return agNames.includes(p.citizen) || (p.citizens||[]).some(c => agNames.includes(c));
+        }).slice(0, 15));
+        _flyToDistrict(district);
+        return;
+      }
+      if (obj.userData.isMonolith) {
+        UI.openOracle();
+        return;
+      }
+    }
+    // Click on agents
+    const agentMeshes = agentAvatars.map(a => a.mesh.children[0]).filter(Boolean);
+    const agentHits = raycaster.intersectObjects(agentMeshes, false);
+    if (agentHits.length > 0) {
+      const avatar = agentAvatars.find(a => a.mesh.children.includes(agentHits[0].object));
+      if (avatar) {
+        const posts = DATA.feed.filter(p => p.citizen === avatar.name || (p.citizens||[]).includes(avatar.name));
+        UI.showDistrict(AGENTS[avatar.name].district, posts);
+      }
+    }
+  });
+}
+
+// ── FLY TO DISTRICT ───────────────────────────────────────
+function _flyToDistrict(name) {
+  const dp = DISTRICT_POSITIONS[name];
+  if (!dp) return;
+  const target = new THREE.Vector3(dp.x, 18, dp.z + 40);
+  // Smooth camera move
+  const start = camera.position.clone();
+  const dur = 800;
+  const t0 = Date.now();
+  function fly() {
+    const pct = Math.min(1, (Date.now() - t0) / dur);
+    const ease = 1 - Math.pow(1 - pct, 3);
+    camera.position.lerpVectors(start, target, ease);
+    // Look at district center
+    const lookAt = new THREE.Vector3(dp.x, 8, dp.z);
+    camera.lookAt(lookAt);
+    if (pct < 1) requestAnimationFrame(fly);
+  }
+  fly();
+}
+
+// ── MINIMAP ───────────────────────────────────────────────
+function _buildMinimap() {
+  const canvas = document.getElementById('minimap-canvas');
+  minimapCtx = canvas.getContext('2d');
+  _drawMinimapStatic();
+}
+
+function _drawMinimapStatic() {
+  if (!minimapCtx) return;
+  const ctx = minimapCtx;
+  const w = 160, h = 160, cx = w/2, cy = h/2, scale = 0.5;
+
+  ctx.fillStyle = '#050810';
+  ctx.fillRect(0, 0, w, h);
+
+  // Roads
+  ctx.strokeStyle = '#0d1530';
+  ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.moveTo(cx, 0); ctx.lineTo(cx, h); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(0, cy); ctx.lineTo(w, cy); ctx.stroke();
+
+  // Districts
+  const distColors = {
+    archive: '#E05050', exchange: '#D97706', agora: '#0891B2',
+    tower: '#2563EB', underground: '#7C3AED', oracle: '#8B5CF6'
+  };
+  Object.entries(DISTRICT_POSITIONS).forEach(([name, pos]) => {
+    const mx = cx + pos.x * scale;
+    const my = cy + pos.z * scale;
+    ctx.beginPath();
+    ctx.arc(mx, my, 7, 0, Math.PI*2);
+    ctx.fillStyle = (distColors[name] || '#ffffff') + '30';
+    ctx.fill();
+    ctx.strokeStyle = distColors[name] || '#ffffff';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    // Label
+    ctx.fillStyle = distColors[name] || '#ffffff';
+    ctx.font = '7px DM Mono, monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText(name.slice(0,3).toUpperCase(), mx, my + 14);
+  });
+
+  // Metro line
+  ctx.strokeStyle = '#1A6CF044';
+  ctx.lineWidth = 2;
+  ctx.setLineDash([3,3]);
+  ctx.beginPath();
+  const trackPoints = [[-120,-80],[-60,-40],[0,-20],[60,-40],[120,-80],[80,-20],[0,30],[-80,50],[-120,80]];
+  trackPoints.forEach(([x,z], i) => {
+    const mx = cx + x*scale, my = cy + z*scale;
+    i === 0 ? ctx.moveTo(mx,my) : ctx.lineTo(mx,my);
+  });
+  ctx.stroke();
+  ctx.setLineDash([]);
+}
+
+function _updateMinimap() {
+  if (!minimapCtx) return;
+  // Redraw static base
+  _drawMinimapStatic();
+  const ctx = minimapCtx;
+  const w = 160, h = 160, cx = w/2, cy = h/2, scale = 0.5;
+
+  // Camera position dot
+  const px = cx + camera.position.x * scale;
+  const py = cy + camera.position.z * scale;
+  const clampedPx = Math.max(5, Math.min(w-5, px));
+  const clampedPy = Math.max(5, Math.min(h-5, py));
+
+  ctx.beginPath();
+  ctx.arc(clampedPx, clampedPy, 4, 0, Math.PI*2);
+  ctx.fillStyle = '#1A6CF0';
+  ctx.fill();
+  ctx.strokeStyle = '#ffffff';
+  ctx.lineWidth = 1;
+  ctx.stroke();
+
+  // Agent dots
+  agentAvatars.forEach(a => {
+    const ax = cx + a.mesh.position.x * scale;
+    const ay = cy + a.mesh.position.z * scale;
+    ctx.beginPath();
+    ctx.arc(Math.max(2,Math.min(w-2,ax)), Math.max(2,Math.min(h-2,ay)), 2, 0, Math.PI*2);
+    ctx.fillStyle = AGENTS[a.name]?.hex || '#ffffff';
+    ctx.fill();
+  });
+}
+
+// ── CAMERA MOVEMENT ───────────────────────────────────────
+function _updateCamera(delta) {
+  const speed = (moveState.shift ? 35 : 14) * delta;
+  const forward = new THREE.Vector3(
+    -Math.sin(camYaw) * Math.cos(camPitch),
+    Math.sin(camPitch) * 0.5,
+    -Math.cos(camYaw) * Math.cos(camPitch)
+  );
+  const right = new THREE.Vector3(Math.cos(camYaw), 0, -Math.sin(camYaw));
+
+  if (moveState.w) camera.position.addScaledVector(forward, speed);
+  if (moveState.s) camera.position.addScaledVector(forward, -speed);
+  if (moveState.a) camera.position.addScaledVector(right, -speed);
+  if (moveState.d) camera.position.addScaledVector(right, speed);
+
+  // Floor clamp
+  camera.position.y = Math.max(2, camera.position.y);
+  // World bounds
+  camera.position.x = Math.max(-280, Math.min(280, camera.position.x));
+  camera.position.z = Math.max(-280, Math.min(280, camera.position.z));
+
+  if (isPointerLocked) {
+    camera.rotation.order = 'YXZ';
+    camera.rotation.y = camYaw;
+    camera.rotation.x = camPitch;
+  }
+}
+
+// ── DAY/NIGHT CYCLE ───────────────────────────────────────
+function _updateTimeOfDay(time) {
+  const hr = new Date().getHours() + new Date().getMinutes()/60;
+  // 0=midnight, 12=noon
+  const dayPct = (hr / 24);
+  // Fog density: denser at night
+  const isNight = hr < 6 || hr > 20;
+  scene.fog.density = isNight ? 0.0042 : 0.0025;
+  // Scene background
+  const nightCol = new THREE.Color(0x020408);
+  const dawnCol  = new THREE.Color(0x0a0812);
+  const dayCol   = new THREE.Color(0x050a16);
+  if (hr >= 5 && hr < 8) scene.background = dawnCol.lerp(dayCol, (hr-5)/3);
+  else if (hr >= 18 && hr < 21) scene.background = dayCol.lerp(nightCol, (hr-18)/3);
+  else if (isNight) scene.background = nightCol;
+  else scene.background = dayCol;
+}
+
+// ── DISTRICT DETECTION ────────────────────────────────────
+function _updateCurrentDistrict() {
+  const nearest = CITY.getNearestDistrict(camera.position);
+  if (nearest.dist < 70 && nearest.name !== lastDistrict) {
+    lastDistrict = nearest.name;
+    UI.updateDistrictLabel(nearest.name);
+  }
+}
+
+// ── RESIZE ────────────────────────────────────────────────
+function _bindResize() {
+  window.addEventListener('resize', () => {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+  });
+}
+
+// ── ANIMATION LOOP ────────────────────────────────────────
+function animate() {
+  requestAnimationFrame(animate);
+  const delta = Math.min(clock.getDelta(), 0.05);
+  time += delta * 1000;
+
+  _updateCamera(delta);
+  _updateTimeOfDay(time);
+  _updateCurrentDistrict();
+
+  // Update city geometry
+  CITY.update(delta, time);
+
+  // Update agent avatars
+  agentAvatars.forEach(a => a.update(delta));
+
+  // Update minimap every 10 frames
+  if (Math.floor(time / 16) % 10 === 0) _updateMinimap();
+
+  renderer.render(scene, camera);
+}
+
+// ── BOOT ──────────────────────────────────────────────────
+window.addEventListener('load', () => {
+  if (!THREE_LOADED) {
+    document.getElementById('load-status').textContent = 'Error: Three.js failed to load. Check connection.';
+    return;
+  }
+  init().catch(err => {
+    console.error('City init error:', err);
+    document.getElementById('load-status').textContent = 'Init error: ' + err.message;
+  });
+});
+</script>
+</body>
+</html>

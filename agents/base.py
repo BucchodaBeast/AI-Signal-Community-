@@ -10,10 +10,10 @@ All field agents inherit from this. Provides:
 
 import os, json, logging, uuid, time
 from datetime import datetime
-import anthropic
+from groq import Groq
 
-ANTHROPIC_API_KEY = os.environ.get('ANTHROPIC_API_KEY', '')
-client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY) if ANTHROPIC_API_KEY else None
+GROQ_API_KEY = os.environ.get('GROQ_API_KEY', '')
+client = Groq(api_key=GROQ_API_KEY) if GROQ_API_KEY else None
 
 log = logging.getLogger('base')
 

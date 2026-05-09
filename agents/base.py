@@ -3,7 +3,7 @@ agents/base.py — BaseAgent
 ===========================
 All field agents inherit from this. Provides:
   - fetch_data()  → raw items from data sources
-  - think()       → turns raw items into structured posts via Claude API
+  - think()       → turns raw items into structured posts via Groq API
   - run()         → fetch + dedup + think + return posts
   - Memory / source scoring helpers
 """
@@ -12,8 +12,12 @@ import os, json, logging, uuid, time
 from datetime import datetime
 from groq import Groq
 
-GROQ_API_KEY = os.environ.get('GROQ_API_KEY', '')
-client = Groq(api_key=GROQ_API_KEY) if GROQ_API_KEY else None
+# ── Initialize all three Groq clients ─────────────────────────────────────
+GROQ_CLIENTS = []
+for i in range(1, 4):
+    key = os.environ.get(f'GROQ_API_KEY_{i}', '')
+    if key:
+        GROQ_CLIENTS.append(Groq(api_key=key))
 
 log = logging.getLogger('base')
 
@@ -85,16 +89,16 @@ class BaseAgent:
         return posts
 
     # ─────────────────────────────────────────────────────────────────────────
-    # THINK — Claude API call
+    # THINK — Groq API call
     # ─────────────────────────────────────────────────────────────────────────
 
     def think(self, item, recent_context=None):
         """
         Turn a raw data item into a structured Signal Society post.
-        Uses the Claude API. Returns a post dict or None.
+        Uses the Groq API. Returns a post dict or None.
         """
-        if not client:
-            self.log.warning('No ANTHROPIC_API_KEY — skipping think()')
+        if not GROQ_CLIENTS:
+            self.log.warning('No GROQ_API_KEY — skipping think()')
             return None
 
         # Build memory block (agent sees own recent posts for continuity)
@@ -102,24 +106,40 @@ class BaseAgent:
 
         prompt = self._build_prompt(item, memory_block)
 
-        try:
-            response = client.messages.create(
-                model='claude-opus-4-5',
-                max_tokens=600,
-                system=self.personality or f'You are {self.name}, {self.title} of The Signal Society.',
-                messages=[{'role': 'user', 'content': prompt}],
-            )
-            raw = response.content[0].text.strip() if response.content else ''
-        except Exception as e:
-            self.log.error(f'Claude API call failed: {e}')
+        # Try each Groq client in order until one succeeds
+        response = None
+        last_error = None
+        for client in GROQ_CLIENTS:
+            try:
+                response = client.chat.completions.create(
+                    model='llama-3.3-70b-versatile',
+                    max_tokens=600,
+                    messages=[
+                        {
+                            'role': 'system',
+                            'content': self.personality or f'You are {self.name}, {self.title} of The Signal Society.'
+                        },
+                        {'role': 'user', 'content': prompt},
+                    ],
+                )
+                if response and response.choices:
+                    break
+            except Exception as e:
+                last_error = e
+                continue
+
+        if not response:
+            self.log.error(f'Groq API call failed on all keys: {last_error}')
             return None
+
+        raw = response.choices[0].message.content.strip() if response.choices else ''
 
         # Try to parse JSON from response
         post = self._parse_response(raw, item)
         return post
 
     def _build_prompt(self, item, memory_block=''):
-        """Build the prompt sent to Claude."""
+        """Build the prompt sent to Groq."""
         item_summary = json.dumps(item, default=str)[:1200]
         context = f'\n\nYour recent posts for context:\n{memory_block}' if memory_block else ''
         return (
@@ -138,7 +158,7 @@ class BaseAgent:
         )
 
     def _parse_response(self, raw, item):
-        """Parse Claude's JSON response into a post dict."""
+        """Parse Groq's JSON response into a post dict."""
         # Strip markdown fences if present
         text = raw.replace('```json', '').replace('```', '').strip()
 
@@ -240,3 +260,4 @@ class BaseAgent:
         Subclasses must implement this.
         """
         raise NotImplementedError(f'{self.name}.fetch_data() not implemented')
+      

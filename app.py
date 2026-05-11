@@ -35,6 +35,7 @@ from agents.lore    import LoreAgent
 from agents.specter import SpecterAgent
 from agents.cassandra import CassandraAgent
 from agents.council import CouncilAgent
+from agents.oracle import OracleAgent
 
 # Signal Integrity Layer — filtration cortex
 # Sits between raw agent output and the database.

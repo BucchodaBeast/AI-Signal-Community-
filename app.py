@@ -610,9 +610,9 @@ def sil_status():
                 'ratio':    round(approved_24h / max(approved_24h + rejected_24h, 1), 3),
             },
             'thresholds': {
-                'minimum':  0.52,
-                'council':  0.65,
-                'brief':    0.72,
+                'minimum':  0.32,
+                'council':  0.34,
+                'brief':    0.35,
             },
         })
     except Exception as e:

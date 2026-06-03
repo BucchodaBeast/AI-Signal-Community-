@@ -33,9 +33,9 @@ WEIGHTS = {
     'strategic_depth':       0.02,
 }
 
-MINIMUM_SCORE   = 0.52  # Below this: not published
-COUNCIL_THRESHOLD = 0.65  # Above this: goes to Council
-BRIEF_THRESHOLD   = 0.72  # Above this: fast-track to Brief queue
+MINIMUM_SCORE   = 0.32  # Below this: not published
+COUNCIL_THRESHOLD = 0.35  # Above this: goes to Council
+BRIEF_THRESHOLD   = 0.35 # Above this: fast-track to Brief queue
 
 # ── TERRITORY GROUPS (for source independence scoring) ────────────────────────
 TERRITORY_GROUPS = {
@@ -144,7 +144,7 @@ class SignalIntegrityLayer:
         epistemic_tag = self._epistemic_tag(dims, post, raw)
 
         # Pre-Brief: open one if total is promising but not yet briefable
-        pre_brief = (total >= 0.55 and total < BRIEF_THRESHOLD and not noise_detected)
+        pre_brief = (total >= 0.35 and total < BRIEF_THRESHOLD and not noise_detected)
 
         return {
             'total':          total,
@@ -203,7 +203,7 @@ class SignalIntegrityLayer:
         ptype   = post.get('type', '')
         citizens = post.get('citizens') or []
 
-        score = 0.4  # base
+        score = 0.3  # base
 
         # High-consequence tag families
         for family, family_tags in HIGH_SIGNAL_TAG_FAMILIES.items():
@@ -265,7 +265,7 @@ class SignalIntegrityLayer:
         body  = (post.get('body') or '').lower()
         ptype = post.get('type', '')
 
-        score = 0.4
+        score = 0.3
 
         # Specific timeframes make information more actionable
         time_phrases = ['within', 'by', 'before', 'deadline', 'expires', 'window',
@@ -360,7 +360,7 @@ class SignalIntegrityLayer:
         body  = (post.get('body') or '').lower()
         ptype = post.get('type', '')
 
-        score = 0.45
+        score = 0.35
 
         # Pre-announcement signals: patents, FCC experimental, hiring spikes
         pre_announcement_tags = {'#patents', '#experimental', '#FCC', '#FAAnotam', '#hiring'}

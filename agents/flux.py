@@ -157,7 +157,7 @@ Tags: #crypto #finance #commodities #treasury #forex #markets #inflation #gold
                 )
                 
                 if not resp.ok:
-                return []
+                    return []
 
                 lines = [l for l in resp.text.strip().split('\n')
                          if l and not l.startswith('DATE') and '.' in l.split(',')[-1]]

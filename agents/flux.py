@@ -155,12 +155,14 @@ Tags: #crypto #finance #commodities #treasury #forex #markets #inflation #gold
                     'https://fred.stlouisfed.org/graph/fredgraph.csv',
                     params={'id': sid}, timeout=6,
                 )
+                
                 if not resp.ok:
-                    continue
+                return []
+
                 lines = [l for l in resp.text.strip().split('\n')
                          if l and not l.startswith('DATE') and '.' in l.split(',')[-1]]
                 if len(lines) < 2:
-                    continue
+                    return []
                 def parse(line):
                     p = line.split(',')
                     return p[0], p[1].strip() if len(p) > 1 else ''

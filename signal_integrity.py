@@ -33,9 +33,9 @@ WEIGHTS = {
     'strategic_depth':       0.02,
 }
 
-MINIMUM_SCORE   = 0.32  # Below this: not published
-COUNCIL_THRESHOLD = 0.35  # Above this: goes to Council
-BRIEF_THRESHOLD   = 0.35 # Above this: fast-track to Brief queue
+MINIMUM_SCORE   = 0.45  # Below this: not published
+COUNCIL_THRESHOLD = 0.45  # Above this: goes to Council
+BRIEF_THRESHOLD   = 0.50 # Above this: fast-track to Brief queue
 
 # ── TERRITORY GROUPS (for source independence scoring) ────────────────────────
 TERRITORY_GROUPS = {

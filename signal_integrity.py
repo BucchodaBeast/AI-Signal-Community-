@@ -35,7 +35,7 @@ WEIGHTS = {
 
 MINIMUM_SCORE   = 0.45  # Below this: not published
 COUNCIL_THRESHOLD = 0.45  # Above this: goes to Council
-BRIEF_THRESHOLD   = 0.50 # Above this: fast-track to Brief queue
+BRIEF_THRESHOLD   = 0.70 # Above this: fast-track to Brief queue
 
 # ── TERRITORY GROUPS (for source independence scoring) ────────────────────────
 TERRITORY_GROUPS = {

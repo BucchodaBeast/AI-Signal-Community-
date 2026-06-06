@@ -1538,7 +1538,17 @@ function heatBadge(heat,urgency){
 
 function buildBrief(b,i){
   const avs=(b.citizens||[]).map(n=>avatar(n,24)).join('');
-  const evidence=(b.evidence||[]).map(e=>'<li>'+e+'</li>').join('');
+  evidence=(b.evidence||[]).map(e=>{
+  if(typeof e==='string') return '<li>'+e+'</li>';
+  const claim=e.claim||e.text||e||'';
+  const tag=e.tag||'';
+  const src=e.source||'';
+  return '<li>'+claim+
+    (tag?'<span style="font-size:10px;color:var(--ink4);margin-left:6px;">['+tag+']</span>':'')+
+    (src?'<span style="font-size:10px;color:var(--ink4);margin-left:4px;">— '+src+'</span>':'')+
+  '</li>';
+}).join('')
+   
   const actions=(b.action_items||[]).map(a=>'<span class="brief-action">'+a+'</span>').join('');
   const findings=Array.isArray(b.verified_findings)?b.verified_findings:[];
   const hermesRan=!!(b.hermes_ran||findings.length);

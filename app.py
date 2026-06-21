@@ -77,7 +77,7 @@ log = logging.getLogger('signal-society')
 # Remove this block (or rotate the key) after your presentation.
 # ─────────────────────────────────────────────────────────────────────────
 
-SEED_DEMO_KEY = "esw2026signal"  # <-- CHANGE THIS before deploying
+SEED_DEMO_KEY = "cum200"  # <-- CHANGE THIS before deploying
 
 @app.route('/admin/seed-demo', methods=['GET'])
 def admin_seed_demo():

@@ -33,9 +33,9 @@ WEIGHTS = {
     'strategic_depth':       0.02,
 }
 
-MINIMUM_SCORE   = 0.35  # Below this: not published
-COUNCIL_THRESHOLD = 0.25  # Above this: goes to Council
-BRIEF_THRESHOLD   = 0.30 # Above this: fast-track to Brief queue
+MINIMUM_SCORE   = 0.01  # Below this: not published
+COUNCIL_THRESHOLD = 0.01  # Above this: goes to Council
+BRIEF_THRESHOLD   = 0.01 # Above this: fast-track to Brief queue
 
 # ── TERRITORY GROUPS (for source independence scoring) ────────────────────────
 TERRITORY_GROUPS = {
@@ -203,7 +203,7 @@ class SignalIntegrityLayer:
         ptype   = post.get('type', '')
         citizens = post.get('citizens') or []
 
-        score = 0.3  # base
+        score = 0.01 # base
 
         # High-consequence tag families
         for family, family_tags in HIGH_SIGNAL_TAG_FAMILIES.items():
